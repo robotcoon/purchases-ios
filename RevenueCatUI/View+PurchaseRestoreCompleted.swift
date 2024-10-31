@@ -39,6 +39,9 @@ public typealias PurchaseOfPackageStartedHandler = @MainActor @Sendable (_ packa
 /// A closure used for notifying of purchase cancellation.
 public typealias PurchaseCancelledHandler = @MainActor @Sendable () -> Void
 
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+public typealias PerformApproval = @MainActor @Sendable (_ packageToPurchase: Package) async -> Bool
+
 /// A closure used to perform custom purchase logic implemented by your app.
 /// - Parameters:
 ///   - package: The package to be purchased.

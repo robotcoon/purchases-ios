@@ -57,6 +57,9 @@ final class PurchaseHandler: ObservableObject {
     /// callback method that performs the restore
     @Published
     private(set) var performRestore: PerformRestore?
+    
+    @Published
+    private(set) var performApproval: PerformApproval?
 
     /// Whether a restore is currently in progress
     @Published
@@ -79,7 +82,8 @@ final class PurchaseHandler: ObservableObject {
     // @PublicForExternalTesting
     convenience init(purchases: Purchases = .shared,
                      performPurchase: PerformPurchase? = nil,
-                     performRestore: PerformRestore? = nil) {
+                     performRestore: PerformRestore? = nil,
+                     performApproval: PerformApproval? = nil) {
         self.init(isConfigured: true,
                   purchases: purchases,
                   performPurchase: performPurchase,
@@ -90,47 +94,57 @@ final class PurchaseHandler: ObservableObject {
         isConfigured: Bool = true,
         purchases: PaywallPurchasesType,
         performPurchase: PerformPurchase? = nil,
-        performRestore: PerformRestore? = nil
+        performRestore: PerformRestore? = nil,
+        performApproval: PerformApproval? = nil
     ) {
         self.isConfigured = isConfigured
         self.purchases = purchases
         self.performPurchase = performPurchase
         self.performRestore = performRestore
+        self.performApproval = performApproval
     }
 
     /// Returns a new instance of `PurchaseHandler` using `Purchases.shared` if `Purchases`
     /// has been configured, and using a PurchaseHandler that cannot be used for purchases otherwise.
     // @PublicForExternalTesting
     static func `default`(performPurchase: PerformPurchase? = nil,
-                          performRestore: PerformRestore? = nil) -> Self {
+                          performRestore: PerformRestore? = nil,
+                          performApproval: PerformApproval? = nil) -> Self {
         return Purchases.isConfigured ? .init(performPurchase: performPurchase,
-                                              performRestore: performRestore) :
+                                              performRestore: performRestore,
+                                              performApproval: performApproval) :
                                         Self.notConfigured(performPurchase: performPurchase,
-                                                           performRestore: performRestore)
+                                                           performRestore: performRestore,
+                                                           performApproval: performApproval)
     }
 
     // @PublicForExternalTesting
     static func `default`(performPurchase: PerformPurchase? = nil,
                           performRestore: PerformRestore? = nil,
+                          performApproval: PerformApproval? = nil,
                           customerInfo: CustomerInfo,
                           purchasesAreCompletedBy: PurchasesAreCompletedBy) -> Self {
         return Purchases.isConfigured ? .init(performPurchase: performPurchase,
-                                              performRestore: performRestore) :
+                                              performRestore: performRestore,
+                                              performApproval: performApproval) :
                                         Self.notConfigured(performPurchase: performPurchase,
                                                            performRestore: performRestore,
+                                                           performApproval: performApproval,
                                                            customerInfo: customerInfo,
                                                            purchasesAreCompletedBy: purchasesAreCompletedBy)
     }
 
     private static func notConfigured(performPurchase: PerformPurchase?,
                                       performRestore: PerformRestore?,
+                                      performApproval: PerformApproval? = nil,
                                       customerInfo: CustomerInfo? = nil,
                                       purchasesAreCompletedBy: PurchasesAreCompletedBy = .revenueCat) -> Self {
         return .init(isConfigured: false,
                      purchases: NotConfiguredPurchases(customerInfo: customerInfo,
                                                        purchasesAreCompletedBy: purchasesAreCompletedBy),
                                                        performPurchase: performPurchase,
-                                                       performRestore: performRestore)
+                                                       performRestore: performRestore,
+                                                       performApproval: performApproval)
     }
 
 }
@@ -165,17 +179,26 @@ extension PurchaseHandler {
         self.startAction()
 
         do {
-            let result = try await self.purchases.purchase(package: package)
-            self.purchaseResult = result
-
-            if result.userCancelled {
-                self.trackCancelledPurchase()
-            } else {
-                withAnimation(Constants.defaultAnimation) {
-                    self.purchased = true
+            let approved = await performApproval?(package) ?? true
+            if approved {
+                let result = try await self.purchases.purchase(package: package)
+                self.purchaseResult = result
+                
+                if result.userCancelled {
+                    self.trackCancelledPurchase()
+                } else {
+                    withAnimation(Constants.defaultAnimation) {
+                        self.purchased = true
+                    }
                 }
-            }
+            } else {
+                let resultInfo: PurchaseResultData = (transaction: nil,
+                                                      customerInfo: try await self.purchases.customerInfo(),
+                                                      userCancelled: true)
 
+                self.purchaseResult = resultInfo
+                self.trackCancelledPurchase()
+            }
         } catch {
             self.purchaseError = error
             throw error
