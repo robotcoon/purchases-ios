@@ -105,9 +105,12 @@ public struct PaywallView: View {
         fonts: PaywallFontProvider = DefaultPaywallFontProvider(),
         displayCloseButton: Bool = false,
         performPurchase: PerformPurchase? = nil,
-        performRestore: PerformRestore? = nil
+        performRestore: PerformRestore? = nil,
+        performApproval: PerformApproval? = nil
     ) {
-        let purchaseHandler = PurchaseHandler.default(performPurchase: performPurchase, performRestore: performRestore)
+        let purchaseHandler = PurchaseHandler.default(performPurchase: performPurchase,
+                                                      performRestore: performRestore,
+                                                      performApproval: performApproval)
         self.init(
             configuration: .init(
                 offering: offering,

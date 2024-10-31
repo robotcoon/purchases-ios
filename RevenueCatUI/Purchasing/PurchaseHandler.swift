@@ -87,7 +87,8 @@ final class PurchaseHandler: ObservableObject {
         self.init(isConfigured: true,
                   purchases: purchases,
                   performPurchase: performPurchase,
-                  performRestore: performRestore)
+                  performRestore: performRestore,
+                  performApproval: performApproval)
     }
 
     init(
